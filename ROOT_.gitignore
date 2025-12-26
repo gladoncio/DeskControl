@@ -1,0 +1,51 @@
+# DeskControl monorepo .gitignore (root)
+
+##########
+# Common #
+##########
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+########
+# Go   #
+########
+**/build/
+**/dist/
+**/out/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.coverprofile
+
+go.work
+go.work.sum
+
+.vscode/
+.idea/
+*.iml
+
+############
+# Flutter  #
+############
+.dart_tool/
+.packages
+.pub-cache/
+build/
+
+**/.gradle/
+**/local.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+
+**/Pods/
+**/.symlinks/
+**/DerivedData/
+**/*.xcuserstate
