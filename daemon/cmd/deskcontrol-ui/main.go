@@ -9,21 +9,45 @@ import (
 )
 
 func main() {
-	wsPort := flag.Int("ws", 54545, "websocket port")
-	udpPort := flag.Int("udp", 54546, "udp discovery port")
-	startInTray := flag.Bool("tray", false, "start minimized to system tray (hide window)")
+	tray := flag.Bool("tray", false, "start hidden in system tray")
 	flag.Parse()
 
-	hub := loghub.New(4000)
-	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
-	log.SetOutput(hub)
+	// timestamps siempre
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	startCore(*wsPort, *udpPort)
-
-	runUI(UIOpts{
-		StartInTray: *startInTray,
+	opts := UIOpts{
+		StartInTray: *tray,
 		AppRunName:  "DeskControl",
 		MaxUILines:  100,
-		Tick:        200 * time.Millisecond,
-	}, hub)
+		Tick:        250 * time.Millisecond,
+	}
+
+	// Hub para la pestaña Logs (y también para log early)
+	hub := loghub.New(opts.MaxUILines)
+
+	// Logging ANTES de UI (./logs al lado del exe)
+	closeFn, err := InitEarlyLogging(hub)
+	if err != nil {
+		// si esto falla, al menos no reventamos la app
+		// (pero idealmente debes correr el exe desde un lugar con permisos de escritura)
+		log.SetOutput(hub) // por lo menos UI logs
+		log.Printf("[boot] InitEarlyLogging error: %v", err)
+	} else {
+		defer closeFn()
+	}
+
+	log.Println("[boot] logger initialized (file + ui hub) ✅")
+
+	// Cargar config para poder purgar logs antiguos (si falla, igual seguimos)
+	cfg, err := LoadConfig()
+	if err != nil {
+		log.Printf("[boot] LoadConfig error: %v", err)
+		cfg = defaultConfig()
+	}
+	if err := PurgeOldLogs(cfg.LogRetentionDays); err != nil {
+		log.Printf("[boot] PurgeOldLogs error: %v", err)
+	}
+
+	// Arrancar UI (no debe reconfigurar el logger)
+	runUI(opts, hub)
 }

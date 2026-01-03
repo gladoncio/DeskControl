@@ -20,12 +20,22 @@ type announceMsg struct {
 	V      int    `json:"v"`
 	Name   string `json:"name"`
 	WsPort int    `json:"ws_port"`
+	TLS    bool   `json:"tls,omitempty"`
 }
 
-// StartUDP starts a UDP discovery responder.
-// It listens on udpPort (e.g. 54546) and answers "discover" requests with "announce".
-func StartUDP(name string, wsPort int, udpPort int) {
-	addr := net.UDPAddr{IP: net.IPv4zero, Port: udpPort}
+// StartUDP listens on udpPort and answers discovery requests.
+// listenIP binds the UDP socket. tlsEnabled is announced to clients.
+func StartUDP(name string, wsPort int, udpPort int, listenIP string, tlsEnabled bool) {
+	bindIP := net.IPv4zero
+	if listenIP != "" {
+		if ip := net.ParseIP(listenIP); ip != nil {
+			bindIP = ip
+		} else {
+			log.Printf("discovery: invalid listenIP %q, using 0.0.0.0", listenIP)
+		}
+	}
+
+	addr := net.UDPAddr{IP: bindIP, Port: udpPort}
 	conn, err := net.ListenUDP("udp4", &addr)
 	if err != nil {
 		log.Println("discovery udp listen error:", err)
@@ -33,15 +43,11 @@ func StartUDP(name string, wsPort int, udpPort int) {
 	}
 	defer conn.Close()
 
-	_ = conn.SetReadBuffer(1 << 20)
-
 	log.Println("Discovery UDP listening on", conn.LocalAddr().String())
 
 	buf := make([]byte, 2048)
 
 	for {
-		_ = conn.SetReadDeadline(time.Time{})
-
 		n, remote, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			log.Println("discovery read error:", err)
@@ -63,12 +69,13 @@ func StartUDP(name string, wsPort int, udpPort int) {
 			V:      1,
 			Name:   name,
 			WsPort: wsPort,
+			TLS:    tlsEnabled,
 		}
 
 		b, _ := json.Marshal(resp)
+		_ = conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if _, err := conn.WriteToUDP(b, remote); err != nil {
 			log.Println("discovery write error:", err)
 		}
-
 	}
 }

@@ -27,24 +27,48 @@ type UIState struct {
 	ShowUI bool
 }
 
-func startCore(wsPort, udpPort int) {
+type HubIface interface {
+	Snapshot() []string
+	Subscribe(n int) (<-chan string, func())
+	Clear()
+}
+
+func startCoreFromConfig() {
+	cfg, err := LoadConfig()
+	if err != nil {
+		log.Printf("[ui] LoadConfig error: %v (usando default)", err)
+		cfg = defaultConfig()
+	}
+
 	name, _ := os.Hostname()
 	if name == "" {
 		name = "DeskControl-PC"
 	}
 
-	go discovery.StartUDP(name, wsPort, udpPort)
+	// ✅ StartUDP ahora requiere 5 args: (name, wsPort, udpPort, bindIP, tlsOn)
+	go discovery.StartUDP(name, cfg.WSPort, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS)
 
+	// WS
 	driver := input.New()
-	go ws.Start(fmt.Sprintf(":%d", wsPort), driver)
 
-	log.Printf("[core] running WS=%d UDP=%d", wsPort, udpPort)
-}
+	addr := fmt.Sprintf(":%d", cfg.WSPort)
+	if ip := cfg.ListenIP; ip != "" && ip != "0.0.0.0" {
+		addr = fmt.Sprintf("%s:%d", ip, cfg.WSPort)
+	}
 
-type HubIface interface {
-	Snapshot() []string
-	Subscribe(n int) (<-chan string, func())
-	Clear()
+	sec := ws.SecurityConfig{
+		RequireTLS:     cfg.EncryptTrafficTLS,
+		CertPath:       cfg.TLSCertPath,
+		KeyPath:        cfg.TLSKeyPath,
+		RequireToken:   cfg.RequireToken,
+		Token:          cfg.Token,
+		RequireAccount: cfg.RequireAccount,
+	}
+
+	log.Printf("[core] running WS=%s UDP=%d (bind=%s) tls=%v token=%v account=%v",
+		addr, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS, cfg.RequireToken, cfg.RequireAccount)
+
+	go ws.Start(addr, driver, sec)
 }
 
 func runUI(opts UIOpts, hub HubIface) {
@@ -62,16 +86,24 @@ func runUI(opts UIOpts, hub HubIface) {
 		w.SetIcon(iconRes)
 	}
 
+	// ✅ Core (WS + UDP) antes de mostrar UI
+	log.Printf("[ui] starting core…")
+	startCoreFromConfig()
+
 	logsTab := buildLogsTab(a, w, hub, state, opts.MaxUILines, opts.Tick)
 	configTab := buildConfigTab(opts.AppRunName, w)
+
+	// ✅ NUEVA pestaña dedicada
+	usersTab := buildUsersTab(w)
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Logs", logsTab),
 		container.NewTabItem("Config", configTab),
+		container.NewTabItem("Usuarios", usersTab),
 	)
 	w.SetContent(tabs)
 
-	// Tray menu + cerrar => ocultar
+	// Tray
 	if desk, ok := a.(desktop.App); ok {
 		menuShow := fyne.NewMenuItem("Abrir", func() {
 			state.ShowUI = true
@@ -87,10 +119,7 @@ func runUI(opts UIOpts, hub HubIface) {
 		})
 		desk.SetSystemTrayMenu(fyne.NewMenu("DeskControl", menuShow, menuHide, menuExit))
 
-		// ✅ IMPORTANTE: setear el icono del tray cuando la app ya arrancó,
-		// así no aparece "tray not ready yet"
 		if iconRes != nil {
-			// Fyne Lifecycle existe en v2
 			a.Lifecycle().SetOnStarted(func() {
 				desk.SetSystemTrayIcon(iconRes)
 			})

@@ -30,6 +30,9 @@ environment:
 dependencies:
   shared_preferences: ^2.2.3
   web_socket_channel: ^3.0.1
+  cryptography: ^2.7.0
+  mobile_scanner: ^5.0.0
+  crypto: ^3.0.3
   flutter:
     sdk: flutter
 

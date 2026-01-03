@@ -1,0 +1,28 @@
+2026/01/03 02:09:58.817351 [boot] logger initialized (file + ui hub) ✅
+2026/01/03 02:09:58.987444 [ui] starting core…
+2026/01/03 02:09:58.990260 [core] running WS=:54545 UDP=54546 (bind=0.0.0.0) tls=true token=true account=false
+2026/01/03 02:09:58.990260 [ws] TLS ENABLED: only wss:// is allowed (ws:// will NOT be served)
+2026/01/03 02:09:58.990260 [ws] Daemon listening (TLS) on :54545 endpoint /ws cert="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\cert.pem" key="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\key.pem" token=true account=false
+2026/01/03 02:09:58.991814 Discovery UDP listening on 0.0.0.0:54546
+2026/01/03 02:09:59.733399 [ui] started
+2026/01/03 02:11:16.869241 [boot] logger initialized (file + ui hub) ✅
+2026/01/03 02:11:17.000944 [ui] starting core…
+2026/01/03 02:11:17.003802 [core] running WS=:54545 UDP=54546 (bind=0.0.0.0) tls=true token=true account=true
+2026/01/03 02:11:17.003802 [ws] TLS ENABLED: only wss:// is allowed (ws:// will NOT be served)
+2026/01/03 02:11:17.003802 [ws] Daemon listening (TLS) on :54545 endpoint /ws cert="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\cert.pem" key="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\key.pem" token=true account=true
+2026/01/03 02:11:17.004828 Discovery UDP listening on 0.0.0.0:54546
+2026/01/03 02:11:17.592214 [ui] started
+2026/01/03 02:11:35.375146 [boot] logger initialized (file + ui hub) ✅
+2026/01/03 02:11:35.506273 [ui] starting core…
+2026/01/03 02:11:35.509373 [core] running WS=:54545 UDP=54546 (bind=0.0.0.0) tls=true token=true account=true
+2026/01/03 02:11:35.509373 [ws] TLS ENABLED: only wss:// is allowed (ws:// will NOT be served)
+2026/01/03 02:11:35.509373 [ws] Daemon listening (TLS) on :54545 endpoint /ws cert="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\cert.pem" key="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\key.pem" token=true account=true
+2026/01/03 02:11:35.510400 Discovery UDP listening on 0.0.0.0:54546
+2026/01/03 02:11:36.101919 [ui] started
+2026/01/03 02:14:17.301066 [boot] logger initialized (file + ui hub) ✅
+2026/01/03 02:14:17.438497 [ui] starting core…
+2026/01/03 02:14:17.441617 [core] running WS=:54545 UDP=54546 (bind=0.0.0.0) tls=true token=true account=true
+2026/01/03 02:14:17.441617 [ws] TLS ENABLED: only wss:// is allowed (ws:// will NOT be served)
+2026/01/03 02:14:17.441617 [ws] Daemon listening (TLS) on :54545 endpoint /ws cert="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\cert.pem" key="C:\\Users\\glado\\Documents\\GitHub\\DeskControl\\daemon\\build\\tls\\key.pem" token=true account=true
+2026/01/03 02:14:17.443166 Discovery UDP listening on 0.0.0.0:54546
+2026/01/03 02:14:18.056323 [ui] started

@@ -3,57 +3,27 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"os"
+	"time"
 
 	"deskcontrol/daemon/internal/discovery"
-	"deskcontrol/daemon/internal/input"
-	"deskcontrol/daemon/internal/ws"
-
-	"github.com/getlantern/systray"
 )
 
-func startDaemon(wsPort, udpPort int) {
-	name, _ := os.Hostname()
-	if name == "" {
-		name = "DeskControl-PC"
-	}
-
-	go discovery.StartUDP(name, wsPort, udpPort)
-
-	driver := input.New()
-	go ws.Start(fmt.Sprintf(":%d", wsPort), driver)
-
-	log.Printf("Daemon running: WS=%d UDP=%d\n", wsPort, udpPort)
-}
-
 func main() {
-	tray := flag.Bool("tray", false, "run in system tray")
-	wsPort := flag.Int("ws", 54545, "websocket port")
-	udpPort := flag.Int("udp", 54546, "udp discovery port")
+	name := flag.String("name", "DeskControl-PC", "nombre a anunciar")
+	wsPort := flag.Int("ws", 54545, "puerto WebSocket a anunciar")
+	udpPort := flag.Int("udp", 54546, "puerto UDP discovery (escucha)")
+	listenIP := flag.String("listen", "0.0.0.0", "IP local a la que se bindea el UDP (0.0.0.0 = todas)")
 	flag.Parse()
 
-	if *tray {
-		systray.Run(func() {
-			systray.SetTitle("DeskControl")
-			systray.SetTooltip("DeskControl daemon")
+	fmt.Printf("DeskControl discovery responder\n")
+	fmt.Printf("  name=%s ws=%d udp=%d listen=%s\n", *name, *wsPort, *udpPort, *listenIP)
+	fmt.Printf("  (Ctrl+C para salir)\n\n")
 
-			startDaemon(*wsPort, *udpPort)
+	// Responder a "discover" por UDP con "announce"
+	go discovery.StartUDP(*name, *wsPort, *udpPort, *listenIP, false)
 
-			mStatus := systray.AddMenuItem("Running (WS:54545 / UDP:54546)", "Status")
-			mStatus.Disable()
-
-			systray.AddSeparator()
-			mExit := systray.AddMenuItem("Exit", "Close DeskControl")
-
-			go func() {
-				<-mExit.ClickedCh
-				systray.Quit()
-			}()
-		}, func() {})
-		return
+	// Bloquea para mantener vivo el proceso
+	for {
+		time.Sleep(1 * time.Hour)
 	}
-
-	startDaemon(*wsPort, *udpPort)
-	select {}
 }

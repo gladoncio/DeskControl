@@ -1,21 +1,72 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'connection_config.dart';
+
 class AppStorage {
   // -------- Config keys ----------
   static const _kSensitivity = 'cfg_sensitivity';
   static const _kScrollSpeed = 'cfg_scroll_speed';
   static const _kThemeMode = 'cfg_theme_mode';
-
-  // ✅ NEW: tiempo (ms) para activar click mantenido (long press)
   static const _kHoldDelayMs = 'cfg_hold_delay_ms';
+
+  // -------- Connection keys ----------
+  static const _kConnAutoDiscover = 'conn_auto_discover';
+  static const _kConnHost = 'conn_host';
+  static const _kConnPort = 'conn_port';
+
+  static const _kConnUseTls = 'conn_use_tls';
+  static const _kConnToken = 'conn_token';
+  static const _kConnCertFp = 'conn_cert_fp_sha256_hex';
+
+  static const _kConnUseUserPass = 'conn_use_userpass';
+  static const _kConnUsername = 'conn_username';
+  static const _kConnPassword = 'conn_password'; // ⚠️ ideal: secure storage
+
+  static const _kConnSecurePayload = 'conn_secure_payload';
 
   // -------- Keyboard keys ----------
   static const _kKeys = 'keys_v1';
   static const _kCombos = 'combos_v1';
-
-  // ✅ NEW: qué teclas se muestran en la vista User
   static const _kVisibleKeys = 'keys_visible_v1';
+
+  // ---------- Connection ----------
+  static Future<ConnectionData> loadConnection() async {
+    final sp = await SharedPreferences.getInstance();
+    return ConnectionData(
+      autoDiscover: sp.getBool(_kConnAutoDiscover) ?? true,
+      host: sp.getString(_kConnHost) ?? "",
+      port: sp.getInt(_kConnPort) ?? 54545,
+
+      useTls: sp.getBool(_kConnUseTls) ?? false,
+      token: sp.getString(_kConnToken) ?? "",
+      certFpSha256Hex: sp.getString(_kConnCertFp) ?? "",
+
+      useUserPass: sp.getBool(_kConnUseUserPass) ?? false,
+      username: sp.getString(_kConnUsername) ?? "",
+      password: sp.getString(_kConnPassword) ?? "",
+
+      securePayload: sp.getBool(_kConnSecurePayload) ?? false,
+    );
+  }
+
+  static Future<void> saveConnection(ConnectionData c) async {
+    final sp = await SharedPreferences.getInstance();
+
+    await sp.setBool(_kConnAutoDiscover, c.autoDiscover);
+    await sp.setString(_kConnHost, c.host);
+    await sp.setInt(_kConnPort, c.port);
+
+    await sp.setBool(_kConnUseTls, c.useTls);
+    await sp.setString(_kConnToken, c.token);
+    await sp.setString(_kConnCertFp, c.certFpSha256Hex);
+
+    await sp.setBool(_kConnUseUserPass, c.useUserPass);
+    await sp.setString(_kConnUsername, c.username);
+    await sp.setString(_kConnPassword, c.password);
+
+    await sp.setBool(_kConnSecurePayload, c.securePayload);
+  }
 
   // ---------- Config ----------
   static Future<void> saveConfig({
@@ -99,8 +150,6 @@ class ConfigData {
   final double sensitivity;
   final double scrollSpeed;
   final String themeMode;
-
-  // ✅ NEW
   final int holdDelayMs;
 
   const ConfigData({
@@ -118,11 +167,7 @@ class KeySpec {
 
   const KeySpec({required this.vk, required this.scan, required this.ext});
 
-  Map<String, dynamic> toJson() => {
-        'vk': vk,
-        'scan': scan,
-        'ext': ext,
-      };
+  Map<String, dynamic> toJson() => {'vk': vk, 'scan': scan, 'ext': ext};
 
   static KeySpec fromJson(Map<String, dynamic> m) => KeySpec(
         vk: (m['vk'] as num?)?.toInt() ?? 0,
@@ -136,7 +181,7 @@ class KeyItem {
   final String name;
   final bool useVK;
   final KeySpec? keySpec;
-  final String? keyName; // si no es VK, texto a enviar
+  final String? keyName;
 
   const KeyItem({
     required this.id,
@@ -178,24 +223,19 @@ class ComboItem {
     required this.tapIndex,
   });
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'keys': keys,
-        'tapIndex': tapIndex,
-      };
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'name': name, 'keys': keys, 'tapIndex': tapIndex};
 
   static ComboItem fromJson(Map<String, dynamic> m) {
     final keys = (m['keys'] is List)
         ? (m['keys'] as List).map((e) => e.toString()).toList()
         : <String>[];
-    final tapIndex = (m['tapIndex'] as num?)?.toInt() ??
-        (keys.isEmpty ? 0 : keys.length - 1);
+    final tapIndex = (m['tapIndex'] as num?)?.toInt() ?? 0;
     return ComboItem(
       id: (m['id'] ?? '').toString(),
       name: (m['name'] ?? '').toString(),
       keys: keys,
-      tapIndex: tapIndex.clamp(0, keys.isEmpty ? 0 : keys.length - 1),
+      tapIndex: tapIndex,
     );
   }
 }

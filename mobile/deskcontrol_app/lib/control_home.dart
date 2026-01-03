@@ -37,9 +37,9 @@ class _ControlHomeState extends State<ControlHome> {
 
   double sensitivity = 1.0;
   double scrollSpeed = 1.0;
-
-  // ✅ nuevo
   int holdDelayMs = 350;
+
+  bool _shownDisconnectToast = false;
 
   @override
   void initState() {
@@ -50,6 +50,26 @@ class _ControlHomeState extends State<ControlHome> {
     _connSub = widget.desk.connection.listen((s) {
       if (!mounted) return;
       setState(() => _state = s);
+
+      // Aviso claro si se cae (una vez)
+      if ((s == DeskConnState.disconnected || s == DeskConnState.closed) &&
+          !_shownDisconnectToast) {
+        _shownDisconnectToast = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("Conexión perdida"),
+            action: SnackBarAction(
+              label: "Volver",
+              onPressed: _disconnectAndBack,
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+
+      if (s == DeskConnState.connected) {
+        _shownDisconnectToast = false;
+      }
     });
   }
 
@@ -164,7 +184,7 @@ class _ControlHomeState extends State<ControlHome> {
               desk: widget.desk,
               sensitivity: sensitivity,
               scrollSpeed: scrollSpeed,
-              holdDelayMs: holdDelayMs, // ✅
+              holdDelayMs: holdDelayMs,
             ),
             KeyboardTab(desk: widget.desk),
             AppsTab(desk: widget.desk),
@@ -172,7 +192,7 @@ class _ControlHomeState extends State<ControlHome> {
             ConfigTab(
               sensitivity: sensitivity,
               scrollSpeed: scrollSpeed,
-              holdDelayMs: holdDelayMs, // ✅
+              holdDelayMs: holdDelayMs,
               onSensitivityChanged: (v) async {
                 setState(() => sensitivity = v);
                 await _saveConfig();

@@ -1,17 +1,33 @@
 package ws
 
 import (
+	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
 	"deskcontrol/daemon/internal/input"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/bcrypt"
 )
+
+type SecurityConfig struct {
+	RequireTLS bool
+	CertPath   string
+	KeyPath    string
+
+	RequireToken bool
+	Token        string
+
+	RequireAccount bool // SOLO con TLS
+}
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
@@ -33,6 +49,13 @@ func (s *safeConn) writeJSON(v any) error {
 type baseMsg struct {
 	ID   string `json:"id,omitempty"`
 	Type string `json:"type"`
+}
+
+type authLoginMsg struct {
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type mouseMoveMsg struct {
@@ -134,18 +157,13 @@ func parseKeySpec(raw []byte) (input.KeySpec, bool) {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return input.KeySpec{}, false
 	}
-
-	// root
 	if m.VK != 0 || m.Scan != 0 {
 		return input.KeySpec{VK: m.VK, Scan: m.Scan, Ext: m.Ext}, true
 	}
-
-	// payload
 	if m.Payload != nil {
 		return input.KeySpec{VK: m.Payload.VK, Scan: m.Payload.Scan, Ext: m.Payload.Ext}, true
 	}
-
-	return input.KeySpec{}, true // parsed ok, but empty values
+	return input.KeySpec{}, true
 }
 
 func parseText(raw []byte) (string, bool) {
@@ -169,6 +187,13 @@ type errResp struct {
 	Error string `json:"error"`
 }
 
+type authOkResp struct {
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type"`
+	Username string `json:"username"`
+	Session  string `json:"session"`
+}
+
 type captureResp struct {
 	ID     string              `json:"id,omitempty"`
 	Type   string              `json:"type"`
@@ -181,10 +206,57 @@ type appsListResp struct {
 	Apps []input.AppInfo `json:"apps"`
 }
 
-func Start(addr string, driver input.InputDriver) {
+type pongResp struct {
+	ID   string `json:"id,omitempty"`
+	Type string `json:"type"`
+}
+
+func tokenFromRequest(r *http.Request) string {
+	if t := r.Header.Get("X-DeskControl-Token"); t != "" {
+		return t
+	}
+	u, err := url.Parse(r.URL.String())
+	if err == nil {
+		if q := u.Query().Get("token"); q != "" {
+			return q
+		}
+	}
+	return ""
+}
+
+func checkToken(sec SecurityConfig, r *http.Request) bool {
+	// Política: token solo tiene sentido con TLS
+	if !sec.RequireTLS {
+		return true
+	}
+	if !sec.RequireToken {
+		return true
+	}
+	if sec.Token == "" {
+		return false
+	}
+	got := tokenFromRequest(r)
+	return subtle.ConstantTimeCompare([]byte(got), []byte(sec.Token)) == 1
+}
+
+func requireAccountActive(sec SecurityConfig) bool {
+	// cuenta solo con TLS
+	if !sec.RequireTLS {
+		return false
+	}
+	return sec.RequireAccount
+}
+
+func Start(addr string, driver input.InputDriver, sec SecurityConfig) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		// Gates BEFORE upgrade
+		if !checkToken(sec, r) {
+			http.Error(w, "unauthorized (token)", http.StatusUnauthorized)
+			return
+		}
+
 		rawConn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println("[ws] upgrade error:", err)
@@ -195,11 +267,18 @@ func Start(addr string, driver input.InputDriver) {
 		conn := &safeConn{c: rawConn}
 		log.Println("[ws] client connected from", r.RemoteAddr)
 
-		// Recover any panic in this handler so the daemon doesn't die
+		// Register session slot (even before auth) so UI can see connections
+		se := registerSession(conn, r.RemoteAddr)
+		sessionID := se.id
+
+		authed := false
+		username := ""
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Printf("[ws] PANIC in handler: %v\n%s", rec, string(debug.Stack()))
 			}
+			unregisterSession(sessionID)
 			log.Println("[ws] client disconnected:", r.RemoteAddr)
 		}()
 
@@ -210,6 +289,8 @@ func Start(addr string, driver input.InputDriver) {
 				return
 			}
 
+			touchSession(sessionID)
+
 			var b baseMsg
 			if err := json.Unmarshal(raw, &b); err != nil {
 				log.Println("[ws] invalid json:", err)
@@ -218,7 +299,73 @@ func Start(addr string, driver input.InputDriver) {
 
 			log.Printf("[ws] recv type=%s id=%s bytes=%d", b.Type, b.ID, len(raw))
 
+			// ✅ siempre responder ping
+			if b.Type == "ping" {
+				if err := conn.writeJSON(pongResp{ID: b.ID, Type: "pong"}); err != nil {
+					log.Printf("[ws] pong write error: %v", err)
+					return
+				}
+				continue
+			}
+
+			// --- LOGIN gating (solo TLS + RequireAccount) ---
+			if requireAccountActive(sec) && !authed {
+				if b.Type != "auth_login" {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "unauthorized: login requerido"})
+					continue
+				}
+
+				var m authLoginMsg
+				if err := json.Unmarshal(raw, &m); err != nil {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "auth_login inválido"})
+					continue
+				}
+				u := strings.TrimSpace(m.Username)
+				p := m.Password
+
+				if u == "" || p == "" {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "usuario/contraseña requeridos"})
+					continue
+				}
+
+				row, err := loadUser(u)
+				if err != nil {
+					// sqlite: si tabla no existe, devuelve error: treat as no users
+					if err == sql.ErrNoRows {
+						_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "usuario o contraseña inválidos"})
+						continue
+					}
+					// también cubre "no such table: users"
+					log.Printf("[auth] loadUser error: %v", err)
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "no hay usuarios configurados (crea uno en la UI)"})
+					continue
+				}
+
+				if row.Disabled {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "usuario deshabilitado"})
+					continue
+				}
+
+				if bcrypt.CompareHashAndPassword([]byte(row.PasswordHash), []byte(p)) != nil {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "usuario o contraseña inválidos"})
+					continue
+				}
+
+				authed = true
+				username = row.Username
+				markSessionAuthed(sessionID, username)
+				markLastLogin(username)
+
+				if err := conn.writeJSON(authOkResp{ID: b.ID, Type: "auth_ok", Username: username, Session: sessionID}); err != nil {
+					log.Printf("[auth] write auth_ok error: %v", err)
+					return
+				}
+				continue
+			}
+
+			// ---- Normal actions ----
 			switch b.Type {
+
 			case "mouse_move":
 				var m mouseMoveMsg
 				if json.Unmarshal(raw, &m) == nil {
@@ -249,7 +396,6 @@ func Start(addr string, driver input.InputDriver) {
 					_ = driver.MouseScroll(m.Dy)
 				}
 
-			// ---- Compat antiguos ----
 			case "key_text":
 				var m keyTextMsg
 				if json.Unmarshal(raw, &m) == nil {
@@ -310,7 +456,6 @@ func Start(addr string, driver input.InputDriver) {
 					_ = driver.HotkeyVK(m.Mods, m.Key)
 				}
 
-			// ✅ ---- NUEVOS (desde Flutter) ----
 			case "text_input":
 				if text, ok := parseText(raw); ok {
 					log.Printf("[input] text_input id=%s text=%q", b.ID, text)
@@ -356,7 +501,6 @@ func Start(addr string, driver input.InputDriver) {
 				log.Printf("[capture] start id=%s timeoutMs=%d", m.ID, timeout)
 
 				go func(reqID string, t int) {
-					// Recover panic in goroutine
 					defer func() {
 						if rec := recover(); rec != nil {
 							log.Printf("[capture] PANIC id=%s: %v\n%s", reqID, rec, string(debug.Stack()))
@@ -370,7 +514,6 @@ func Start(addr string, driver input.InputDriver) {
 						_ = conn.writeJSON(errResp{ID: reqID, Type: "error", Error: err.Error()})
 						return
 					}
-					log.Printf("[capture] ok id=%s vk=%d scan=%d ext=%v mods=%v", reqID, res.Key.VK, res.Key.Scan, res.Key.Ext, res.Mods)
 
 					if err := conn.writeJSON(captureResp{ID: reqID, Type: "capture_key", Result: res}); err != nil {
 						log.Printf("[capture] writeJSON failed id=%s: %v", reqID, err)
@@ -410,6 +553,14 @@ func Start(addr string, driver input.InputDriver) {
 		}
 	})
 
-	log.Println("[ws] Daemon listening on", addr, "endpoint /ws")
+	if sec.RequireTLS {
+		log.Println("[ws] TLS ENABLED: only wss:// is allowed (ws:// will NOT be served)")
+		log.Printf("[ws] Daemon listening (TLS) on %s endpoint /ws cert=%q key=%q token=%v account=%v",
+			addr, sec.CertPath, sec.KeyPath, sec.RequireToken, sec.RequireAccount)
+		log.Fatal(http.ListenAndServeTLS(addr, sec.CertPath, sec.KeyPath, mux))
+		return
+	}
+
+	log.Println("[ws] TLS disabled: serving ws:// on", addr, "endpoint /ws")
 	log.Fatal(http.ListenAndServe(addr, mux))
 }
