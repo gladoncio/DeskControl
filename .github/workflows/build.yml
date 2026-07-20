@@ -1,0 +1,79 @@
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter build apk --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deskcontrol-app-release
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter build linux --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deskcontrol-linux
+          path: app/build/linux/x64/release/bundle/
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter build windows --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deskcontrol-windows
+          path: app/build/windows/x64/runner/Release/
+
+  daemon:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go build -o deskcontrold ./cmd/deskcontrol-ui/
+        working-directory: daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deskcontrold-${{ matrix.os == 'ubuntu-latest' && 'linux' || 'windows' }}
+          path: daemon/deskcontrold*
