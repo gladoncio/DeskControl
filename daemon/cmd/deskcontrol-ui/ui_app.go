@@ -33,11 +33,16 @@ type HubIface interface {
 	Clear()
 }
 
-func startCoreFromConfig() {
+func startCoreFromConfig() (string, string) {
 	cfg, err := LoadConfig()
 	if err != nil {
 		log.Printf("[ui] LoadConfig error: %v (usando default)", err)
 		cfg = defaultConfig()
+	}
+
+	deviceID := cfg.DeviceID
+	if deviceID == "" {
+		deviceID = "unknown"
 	}
 
 	name, _ := os.Hostname()
@@ -45,10 +50,8 @@ func startCoreFromConfig() {
 		name = "DeskControl-PC"
 	}
 
-	// ✅ StartUDP ahora requiere 5 args: (name, wsPort, udpPort, bindIP, tlsOn)
-	go discovery.StartUDP(name, cfg.WSPort, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS)
+	go discovery.StartUDP(name, cfg.WSPort, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS, deviceID)
 
-	// WS
 	driver := input.New()
 
 	addr := fmt.Sprintf(":%d", cfg.WSPort)
@@ -65,17 +68,19 @@ func startCoreFromConfig() {
 		RequireAccount: cfg.RequireAccount,
 	}
 
-	log.Printf("[core] running WS=%s UDP=%d (bind=%s) tls=%v token=%v account=%v",
-		addr, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS, cfg.RequireToken, cfg.RequireAccount)
+	driverInfo := driver.DriverInfo()
+	log.Printf("[core] running WS=%s UDP=%d (bind=%s) tls=%v token=%v account=%v driver=%s device=%s",
+		addr, cfg.UDPPort, cfg.ListenIP, cfg.EncryptTrafficTLS, cfg.RequireToken, cfg.RequireAccount, driverInfo, deviceID)
 
-	go ws.Start(addr, driver, sec)
+	go ws.Start(addr, driver, sec, deviceID)
+	return driverInfo, deviceID
 }
 
 func runUI(opts UIOpts, hub HubIface) {
 	state := &UIState{ShowUI: true}
 
-	a := app.New()
-	w := a.NewWindow("DeskControl")
+	a := app.NewWithID("com.deskcontrol.daemon")
+	w := a.NewWindow("DeskControl v" + Version)
 	w.Resize(fyne.NewSize(950, 650))
 
 	// Icon resource (si existe assets.go/trayPng)
@@ -88,10 +93,11 @@ func runUI(opts UIOpts, hub HubIface) {
 
 	// ✅ Core (WS + UDP) antes de mostrar UI
 	log.Printf("[ui] starting core…")
-	startCoreFromConfig()
+	driverInfo, deviceID := startCoreFromConfig()
+	_ = deviceID
 
 	logsTab := buildLogsTab(a, w, hub, state, opts.MaxUILines, opts.Tick)
-	configTab := buildConfigTab(opts.AppRunName, w)
+	configTab := buildConfigTab(opts.AppRunName, w, driverInfo)
 
 	// ✅ NUEVA pestaña dedicada
 	usersTab := buildUsersTab(w)
@@ -117,7 +123,7 @@ func runUI(opts UIOpts, hub HubIface) {
 		menuExit := fyne.NewMenuItem("Salir", func() {
 			a.Quit()
 		})
-		desk.SetSystemTrayMenu(fyne.NewMenu("DeskControl", menuShow, menuHide, menuExit))
+		desk.SetSystemTrayMenu(fyne.NewMenu(	"DeskControl v"+Version, menuShow, menuHide, menuExit))
 
 		if iconRes != nil {
 			a.Lifecycle().SetOnStarted(func() {

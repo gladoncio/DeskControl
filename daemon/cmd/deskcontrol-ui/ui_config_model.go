@@ -18,6 +18,9 @@ type AppConfig struct {
 	PasswordHash   string // bcrypt hash string
 
 	LogRetentionDays int
+
+	// Identificador único persistente del daemon (auto-generado UUID v4)
+	DeviceID string
 }
 
 func defaultConfig() AppConfig {
@@ -34,5 +37,6 @@ func defaultConfig() AppConfig {
 		Username:          "",
 		PasswordHash:      "",
 		LogRetentionDays:  7,
+		DeviceID:          "",
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"os"
@@ -48,7 +49,33 @@ func openDB() (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if _, err := ensureDeviceID(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("ensureDeviceID: %w", err)
+	}
 	return db, nil
+}
+
+func ensureDeviceID(db *sql.DB) (string, error) {
+	v, ok, err := getSetting(db, "device_id")
+	if err != nil {
+		return "", err
+	}
+	if ok && v != "" {
+		return v, nil
+	}
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	id := fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	if err := setSetting(db, "device_id", id); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func setSetting(db *sql.DB, key, value string) error {
@@ -119,6 +146,7 @@ func LoadConfig() (AppConfig, error) {
 	_ = readStr("password_hash", &cfg.PasswordHash)
 
 	_ = readInt("log_retention_days", &cfg.LogRetentionDays)
+	_ = readStr("device_id", &cfg.DeviceID)
 
 	// ✅ Enforce current policy on load too (so UI reflects it)
 	if !cfg.EncryptTrafficTLS {
@@ -231,6 +259,12 @@ func SaveConfig(cfg AppConfig) error {
 
 	if err := writeInt("log_retention_days", cfg.LogRetentionDays); err != nil {
 		return err
+	}
+
+	if cfg.DeviceID != "" {
+		if err := write("device_id", cfg.DeviceID); err != nil {
+			return err
+		}
 	}
 
 	return nil

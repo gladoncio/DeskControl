@@ -1,0 +1,69 @@
+# DeskControl monorepo .gitignore (root)
+
+##########
+# Common #
+##########
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+########
+# Go   #
+########
+**/build/
+**/dist/
+**/out/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.coverprofile
+
+go.work
+go.work.sum
+
+.vscode/
+.idea/
+*.iml
+
+# Compiled binaries (not under build/)
+daemon/deskcontrol-daemon
+daemon/deskcontrol-ui
+daemon/fyne-cross/
+
+# Runtime logs
+daemon/logs/
+
+############
+# Flutter  #
+############
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+**/flutter-linux-x64/
+
+**/.gradle/
+**/local.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+
+*.apk
+*.aab
+*.snap
+
+**/Pods/
+**/.symlinks/
+**/DerivedData/
+**/*.xcuserstate
+
+# Generated Flutter files
+.flutter-plugins
+.flutter-plugins-dependencies

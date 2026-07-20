@@ -15,17 +15,18 @@ type discoverMsg struct {
 }
 
 type announceMsg struct {
-	Type   string `json:"type"`
-	App    string `json:"app"`
-	V      int    `json:"v"`
-	Name   string `json:"name"`
-	WsPort int    `json:"ws_port"`
-	TLS    bool   `json:"tls,omitempty"`
+	Type     string `json:"type"`
+	App      string `json:"app"`
+	V        int    `json:"v"`
+	Name     string `json:"name"`
+	DeviceID string `json:"device_id"`
+	WsPort   int    `json:"ws_port"`
+	TLS      bool   `json:"tls,omitempty"`
 }
 
 // StartUDP listens on udpPort and answers discovery requests.
 // listenIP binds the UDP socket. tlsEnabled is announced to clients.
-func StartUDP(name string, wsPort int, udpPort int, listenIP string, tlsEnabled bool) {
+func StartUDP(name string, wsPort int, udpPort int, listenIP string, tlsEnabled bool, deviceID string) {
 	bindIP := net.IPv4zero
 	if listenIP != "" {
 		if ip := net.ParseIP(listenIP); ip != nil {
@@ -64,12 +65,13 @@ func StartUDP(name string, wsPort int, udpPort int, listenIP string, tlsEnabled 
 		}
 
 		resp := announceMsg{
-			Type:   "announce",
-			App:    "deskcontrol",
-			V:      1,
-			Name:   name,
-			WsPort: wsPort,
-			TLS:    tlsEnabled,
+			Type:     "announce",
+			App:      "deskcontrol",
+			V:        1,
+			Name:     name,
+			DeviceID: deviceID,
+			WsPort:   wsPort,
+			TLS:      tlsEnabled,
 		}
 
 		b, _ := json.Marshal(resp)

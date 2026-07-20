@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -239,6 +240,13 @@ func checkToken(sec SecurityConfig, r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(sec.Token)) == 1
 }
 
+type deviceInfoResp struct {
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type"`
+	DeviceID string `json:"device_id"`
+	Name     string `json:"name"`
+}
+
 func requireAccountActive(sec SecurityConfig) bool {
 	// cuenta solo con TLS
 	if !sec.RequireTLS {
@@ -247,7 +255,7 @@ func requireAccountActive(sec SecurityConfig) bool {
 	return sec.RequireAccount
 }
 
-func Start(addr string, driver input.InputDriver, sec SecurityConfig) {
+func Start(addr string, driver input.InputDriver, sec SecurityConfig, deviceID string) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
@@ -535,6 +543,49 @@ func Start(addr string, driver input.InputDriver, sec SecurityConfig) {
 				}
 				log.Printf("[apps] list ok id=%s count=%d", m.ID, len(apps))
 				_ = conn.writeJSON(appsListResp{ID: m.ID, Type: "apps_list_result", Apps: apps})
+
+			case "clipboard_get":
+				text, err := driver.ClipboardGetText()
+				if err != nil {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: err.Error()})
+					continue
+				}
+				_ = conn.writeJSON(map[string]any{
+					"id":   b.ID,
+					"type": "clipboard_data",
+					"text": text,
+				})
+
+			case "clipboard_set":
+				var m struct {
+					ID   string `json:"id,omitempty"`
+					Type string `json:"type"`
+					Text string `json:"text"`
+				}
+				if json.Unmarshal(raw, &m) != nil || m.Text == "" {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: "text required"})
+					continue
+				}
+				if err := driver.ClipboardSetText(m.Text); err != nil {
+					_ = conn.writeJSON(errResp{ID: b.ID, Type: "error", Error: err.Error()})
+					continue
+				}
+				_ = conn.writeJSON(map[string]any{
+					"id":   b.ID,
+					"type": "clipboard_ok",
+				})
+
+			case "device_info":
+				hostname, _ := os.Hostname()
+				if hostname == "" {
+					hostname = "DeskControl-PC"
+				}
+				_ = conn.writeJSON(deviceInfoResp{
+					ID:       b.ID,
+					Type:     "device_info",
+					DeviceID: deviceID,
+					Name:     hostname,
+				})
 
 			case "app_action":
 				var m appActionMsg

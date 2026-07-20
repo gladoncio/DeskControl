@@ -52,9 +52,20 @@ type INPUT struct {
 }
 
 var (
-	user32    = syscall.NewLazyDLL("user32.dll")
-	sendInput = user32.NewProc("SendInput")
+	user32               = syscall.NewLazyDLL("user32.dll")
+	sendInput            = user32.NewProc("SendInput")
+	procOpenClipboard    = user32.NewProc("OpenClipboard")
+	procCloseClipboard   = user32.NewProc("CloseClipboard")
+	procGetClipboardData = user32.NewProc("GetClipboardData")
+	procSetClipboardData = user32.NewProc("SetClipboardData")
+	procEmptyClipboard   = user32.NewProc("EmptyClipboard")
+	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
+	procGlobalLock       = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock     = kernel32.NewProc("GlobalUnlock")
+	procGlobalFree       = kernel32.NewProc("GlobalFree")
 )
+
+const cfUnicodeText = 13
 
 type WindowsInput struct{}
 
@@ -368,4 +379,72 @@ func vkFromKey(k string) uint16 {
 	}
 
 	return 0
+}
+
+func (w *WindowsInput) ClipboardGetText() (string, error) {
+	r1, _, err := procOpenClipboard.Call(0)
+	if r1 == 0 {
+		return "", err
+	}
+	defer procCloseClipboard.Call()
+
+	r1, _, err = procGetClipboardData.Call(cfUnicodeText)
+	if r1 == 0 {
+		return "", err
+	}
+
+	locked, _, _ := procGlobalLock.Call(r1)
+	if locked == 0 {
+		return "", syscall.EINVAL
+	}
+	defer procGlobalUnlock.Call(r1)
+
+	ptr := locked
+	runes := []rune{}
+	for {
+		ch := *(*uint16)(unsafe.Pointer(ptr))
+		if ch == 0 {
+			break
+		}
+		runes = append(runes, rune(ch))
+		ptr += 2
+	}
+	return string(runes), nil
+}
+
+func (w *WindowsInput) ClipboardSetText(text string) error {
+	r1, _, err := procOpenClipboard.Call(0)
+	if r1 == 0 {
+		return err
+	}
+	defer procCloseClipboard.Call()
+
+	procEmptyClipboard.Call()
+
+	utf16data := utf16.Encode([]rune(text + "\x00"))
+	size := len(utf16data) * 2
+
+	hdl, _, err := procGlobalAlloc.Call(0x0042, uintptr(size)) // GMEM_MOVABLE | GMEM_ZEROINIT
+	if hdl == 0 {
+		return err
+	}
+
+	locked, _, _ := procGlobalLock.Call(hdl)
+	if locked == 0 {
+		procGlobalFree.Call(hdl)
+		return syscall.EINVAL
+	}
+
+	for i, ch := range utf16data {
+		*(*uint16)(unsafe.Pointer(locked + uintptr(i*2))) = ch
+	}
+
+	procGlobalUnlock.Call(hdl)
+
+	r1, _, err = procSetClipboardData.Call(cfUnicodeText, hdl, 0)
+	if r1 == 0 {
+		procGlobalFree.Call(hdl)
+		return err
+	}
+	return nil
 }

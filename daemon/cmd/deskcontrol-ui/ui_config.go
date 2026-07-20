@@ -41,7 +41,7 @@ func showPairQRDialog(title string, png []byte, payload string, w fyne.Window) {
 	dialog.NewCustom(title, "Cerrar", content, w).Show()
 }
 
-func buildConfigTab(appRunName string, w fyne.Window) fyne.CanvasObject {
+func buildConfigTab(appRunName string, w fyne.Window, driverInfo string) fyne.CanvasObject {
 	// ---- Load current config ----
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -377,9 +377,16 @@ func buildConfigTab(appRunName string, w fyne.Window) fyne.CanvasObject {
 	checkTLS.OnChanged = func(bool) { refreshTLSDependent() }
 	refreshTLSDependent()
 
+	// ---- Status (platform / driver) ----
+	statusBox := container.NewHBox(
+		widget.NewLabelWithStyle("Estado: "+driverInfo, fyne.TextAlignLeading, fyne.TextStyle{Monospace: true}),
+	)
+
 	// ---- Layout (scroll fijo) ----
 	content := container.NewVBox(
 		widget.NewLabelWithStyle("Configuración", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		statusBox,
+		widget.NewSeparator(),
 
 		widget.NewLabelWithStyle("Inicio", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		checkAutostart,
@@ -418,6 +425,8 @@ func buildConfigTab(appRunName string, w fyne.Window) fyne.CanvasObject {
 		widget.NewSeparator(),
 
 		btnSave,
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("DeskControl v"+Version, fyne.TextAlignCenter, fyne.TextStyle{Monospace: true}),
 	)
 
 	sc := container.NewVScroll(content)

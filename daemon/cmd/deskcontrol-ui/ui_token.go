@@ -90,6 +90,9 @@ func tokenQRPNGForConfig(cfg AppConfig) ([]byte, string, error) {
 	q := url.Values{}
 	q.Set("host", host)
 	q.Set("port", fmt.Sprintf("%d", port))
+	if cfg.DeviceID != "" {
+		q.Set("device_id", cfg.DeviceID)
+	}
 
 	if cfg.EncryptTrafficTLS {
 		q.Set("tls", "1")

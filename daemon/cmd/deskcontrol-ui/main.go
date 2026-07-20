@@ -48,6 +48,11 @@ func main() {
 		log.Printf("[boot] PurgeOldLogs error: %v", err)
 	}
 
+	// Single instance check
+	if !ensureSingleInstance("DeskControl") {
+		log.Fatalf("[boot] another instance is already running")
+	}
+
 	// Arrancar UI (no debe reconfigurar el logger)
 	runUI(opts, hub)
 }

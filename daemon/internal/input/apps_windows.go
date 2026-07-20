@@ -181,3 +181,7 @@ func (w *WindowsInput) AppAction(hwnd uintptr, action string) error {
 		return errors.New("unknown action")
 	}
 }
+
+func (w *WindowsInput) DriverInfo() string {
+	return "Windows · SendInput"
+}

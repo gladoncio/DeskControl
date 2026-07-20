@@ -55,4 +55,11 @@ type InputDriver interface {
 	// Taskbar apps
 	ListApps() ([]AppInfo, error)
 	AppAction(hwnd uintptr, action string) error // minimize|restore|activate|maximize|close
+
+	// Clipboard operations
+	ClipboardGetText() (string, error)
+	ClipboardSetText(text string) error
+
+	// DriverInfo returns a human-readable description of the active driver
+	DriverInfo() string
 }
