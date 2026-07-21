@@ -22,6 +22,8 @@ fyne-cross windows \
 
 mkdir -p ../build/windows
 cp fyne-cross/dist/windows-amd64/DeskControl.exe.zip ../build/windows/
+unzip -o ../build/windows/DeskControl.exe.zip -d ../build/windows/ 2>&1 | tail -2
+rm ../build/windows/DeskControl.exe.zip
 
-echo "==> Done! Package: build/windows/DeskControl.exe.zip  (v$VERSION)"
-ls -lh ../build/windows/DeskControl.exe.zip
+echo "==> Done! Binary: build/windows/DeskControl.exe  (v$VERSION)"
+ls -lh ../build/windows/DeskControl.exe
