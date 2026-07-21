@@ -7,5 +7,8 @@ echo "==> Building DeskControl v$VERSION APK for Android..."
 
 flutter build apk --release
 
-echo "==> Done! APK: app/build/app/outputs/flutter-apk/app-release.apk  (v$VERSION)"
-ls -lh build/app/outputs/flutter-apk/app-release.apk
+mkdir -p ../build/android
+cp build/app/outputs/flutter-apk/app-release.apk ../build/android/
+
+echo "==> Done! APK: build/android/app-release.apk  (v$VERSION)"
+ls -lh ../build/android/app-release.apk

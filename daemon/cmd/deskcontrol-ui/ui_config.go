@@ -3,6 +3,7 @@
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -57,19 +58,32 @@ func buildConfigTab(appRunName string, w fyne.Window, driverInfo string) fyne.Ca
 		existingCmd = ""
 	}
 
+	autostartMethod := "autostart"
+	if runtime.GOOS == "windows" {
+		autostartMethod = "HKCU Run"
+	} else if runtime.GOOS == "linux" {
+		autostartMethod = "XDG autostart"
+	}
+
 	statusLabel := widget.NewLabel("")
 	setStatus := func() {
 		if enabled {
-			statusLabel.SetText("Autostart: ACTIVADO (HKCU Run)\n" + existingCmd)
+			statusLabel.SetText("Autostart: ACTIVADO (" + autostartMethod + ")\n" + existingCmd)
 		} else {
 			statusLabel.SetText("Autostart: DESACTIVADO")
 		}
 	}
 	setStatus()
 
-	// ✅ FIX: declarar primero y luego asignar
+	autostartCheckLabel := "Iniciar con el sistema (modo tray)"
+	if runtime.GOOS == "windows" {
+		autostartCheckLabel = "Iniciar con Windows (modo tray)"
+	} else if runtime.GOOS == "linux" {
+		autostartCheckLabel = "Iniciar con Linux (modo tray)"
+	}
+
 	var checkAutostart *widget.Check
-	checkAutostart = widget.NewCheck("Iniciar con Windows (modo tray)", func(v bool) {
+	checkAutostart = widget.NewCheck(autostartCheckLabel, func(v bool) {
 		args := "--tray"
 		if err := startup.SetEnabled(appRunName, v, args); err != nil {
 			log.Printf("[config] SetEnabled error: %v", err)

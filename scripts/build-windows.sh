@@ -6,6 +6,7 @@ VERSION=$(grep -E "^const Version" cmd/deskcontrol-ui/version.go | cut -d'"' -f2
 echo "==> Building DeskControl v$VERSION for Windows (cross-compile via fyne-cross)..."
 
 # Ensure fyne-cross is installed
+PATH="$HOME/go/bin:$PATH"
 if ! command -v fyne-cross &>/dev/null; then
     echo "fyne-cross not found. Installing..."
     go install github.com/fyne-io/fyne-cross@latest
@@ -19,5 +20,8 @@ fyne-cross windows \
     -env GOTOOLCHAIN=auto \
     ./cmd/deskcontrol-ui
 
-echo "==> Done! Package: daemon/fyne-cross/dist/windows-amd64/DeskControl.exe.zip  (v$VERSION)"
-ls -lh fyne-cross/dist/windows-amd64/DeskControl.exe.zip
+mkdir -p ../build/windows
+cp fyne-cross/dist/windows-amd64/DeskControl.exe.zip ../build/windows/
+
+echo "==> Done! Package: build/windows/DeskControl.exe.zip  (v$VERSION)"
+ls -lh ../build/windows/DeskControl.exe.zip
