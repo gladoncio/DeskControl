@@ -427,19 +427,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     );
   }
 
-  Future<void> _deleteHistory(ConnectionRecord rec) async {
-    await AppStorage.removeConnectionRecord(rec.profileId);
-    await _reloadHistory();
-  }
 
-  String _timeAgo(int ms) {
-    if (ms <= 0) return '';
-    final diff = DateTime.now().millisecondsSinceEpoch - ms;
-    if (diff < 60000) return 'ahora';
-    if (diff < 3600000) return '${diff ~/ 60000}m';
-    if (diff < 86400000) return '${diff ~/ 3600000}h';
-    return '${diff ~/ 86400000}d';
-  }
 
   @override
   Widget build(BuildContext context) {

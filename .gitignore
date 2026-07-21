@@ -36,6 +36,9 @@ daemon/deskcontrol-daemon
 daemon/deskcontrol-ui
 daemon/fyne-cross/
 
+# Legacy mobile directory (moved to app/)
+mobile/
+
 # Runtime logs
 daemon/logs/
 

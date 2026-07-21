@@ -16,6 +16,7 @@ fyne-cross windows \
     -name "DeskControl $VERSION" \
     -icon cmd/deskcontrol-ui/assets/tray.png \
     -output DeskControl.exe \
+    -env GOTOOLCHAIN=auto \
     ./cmd/deskcontrol-ui
 
 echo "==> Done! Package: daemon/fyne-cross/dist/windows-amd64/DeskControl.exe.zip  (v$VERSION)"

@@ -164,7 +164,7 @@ class _AppsTabState extends State<AppsTab> {
               ? const Center(child: Text('Sin apps'))
               : ListView.separated(
                   itemCount: _apps.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (ctx, i) {
                     final a = _apps[i];
                     return ListTile(

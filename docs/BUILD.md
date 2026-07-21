@@ -35,7 +35,7 @@ DeskControl/
 
 | Dependency | Linux | Windows (native) | Windows (cross desde Linux) |
 |------------|-------|------------------|------------------------------|
-| Go ≥ 1.24 | `apt install golang` | [Descargar](https://go.dev/dl/) | `apt install golang` |
+| Go ≥ 1.26 | `apt install golang` | [Descargar](https://go.dev/dl/) | `apt install golang` |
 | GCC (CGO) | `apt install gcc` | MSYS2 + MinGW-w64 | Docker (fyne-cross) |
 | X11 dev (Linux only) | `apt install libx11-dev libxtst-dev` | — | — |
 | Docker | — | — | `apt install docker.io` |
@@ -135,7 +135,7 @@ cd daemon
 $env:CGO_ENABLED="1"
 $env:CC="gcc"
 $env:CXX="g++"
-go build -o build/DeskControl.exe ./cmd/desktopcontrol-ui
+go build -o build/DeskControl.exe ./cmd/deskcontrol-ui
 ```
 
 ### 4) Android APK

@@ -369,7 +369,7 @@ class DeskSocket {
     final msg = <String, dynamic>{
       'id': id,
       'type': type,
-      if (payload != null) ...payload,
+      ...?payload,
     };
 
     // ignore: discarded_futures

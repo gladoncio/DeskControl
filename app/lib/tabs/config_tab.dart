@@ -75,23 +75,25 @@ class _ConfigTabState extends State<ConfigTab> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
 
-        RadioListTile<ThemeMode>(
-          title: const Text("System"),
-          value: ThemeMode.system,
+        RadioGroup<ThemeMode>(
           groupValue: widget.themeMode,
-          onChanged: (v) => v != null ? widget.onThemeModeChanged(v) : null,
-        ),
-        RadioListTile<ThemeMode>(
-          title: const Text("Light"),
-          value: ThemeMode.light,
-          groupValue: widget.themeMode,
-          onChanged: (v) => v != null ? widget.onThemeModeChanged(v) : null,
-        ),
-        RadioListTile<ThemeMode>(
-          title: const Text("Dark"),
-          value: ThemeMode.dark,
-          groupValue: widget.themeMode,
-          onChanged: (v) => v != null ? widget.onThemeModeChanged(v) : null,
+          onChanged: (v) { if (v != null) widget.onThemeModeChanged(v); },
+          child: Column(
+            children: [
+              RadioListTile<ThemeMode>(
+                title: const Text("System"),
+                value: ThemeMode.system,
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text("Light"),
+                value: ThemeMode.light,
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text("Dark"),
+                value: ThemeMode.dark,
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 24),

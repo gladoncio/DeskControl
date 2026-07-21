@@ -1,0 +1,7 @@
+deskcontrol-daemon
+deskcontrol-ui
+*.exe
+build/
+fyne-cross/
+logs/
+Icon.png

@@ -5,6 +5,7 @@ package input
 /*
 #cgo LDFLAGS: -lX11
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/keysym.h>
 #include <X11/keysymdef.h>
 
@@ -15,7 +16,7 @@ static int waitForKeyPress(Display *d, KeySym *ks, unsigned int *state) {
         XNextEvent(d, &ev);
         if (ev.type == KeyPress) {
             XKeyEvent *ke = (XKeyEvent *)&ev;
-            *ks = XKeycodeToKeysym(d, ke->keycode, 0);
+            *ks = XkbKeycodeToKeysym(d, ke->keycode, 0, 0);
             *state = ke->state;
             return (int)ke->keycode;
         }

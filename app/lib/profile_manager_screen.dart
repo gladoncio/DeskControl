@@ -32,6 +32,7 @@ class _ProfileManagerScreenState extends State<ProfileManagerScreen> {
 
   Future<void> _rename(ConnectionRecord rec) async {
     final loaded = await AppStorage.loadProfileName(rec.profileId, deviceId: rec.deviceId);
+    if (!mounted) return;
     final currentName = loaded.isNotEmpty ? loaded : rec.name;
     final ctrl = TextEditingController(text: currentName);
     final newName = await showDialog<String>(
